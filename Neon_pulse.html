@@ -1,0 +1,1273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Neon Pulse - 4 Key Rhythm Game</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap');
+
+        :root {
+            --theme-color: #00ffff;
+            --theme-glow: rgba(0, 255, 255, 0.5);
+        }
+
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #050505;
+            font-family: 'Orbitron', sans-serif;
+            color: white;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        #game-container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: radial-gradient(circle at center, #1a1a2e 0%, #000000 100%);
+        }
+
+        canvas {
+            box-shadow: 0 0 50px rgba(0, 0, 0, 0.5);
+            max-width: 100%;
+            max-height: 100%;
+        }
+
+        .ui-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        #ui-top {
+            display: flex;
+            justify-content: space-between;
+            width: 100%;
+            max-width: 600px;
+            margin: 0 auto;
+            text-shadow: 0 0 10px var(--theme-color);
+            margin-top: 20px;
+        }
+
+        .stat-box {
+            background: rgba(0, 0, 0, 0.5);
+            border: 1px solid var(--theme-color);
+            padding: 10px 20px;
+            border-radius: 4px;
+            text-align: center;
+        }
+
+        .stat-label {
+            font-size: 0.8rem;
+            color: var(--theme-color);
+            opacity: 0.8;
+        }
+
+        .stat-value {
+            font-size: 1.5rem;
+            font-weight: bold;
+        }
+
+        #combo-container {
+            position: absolute;
+            top: 40%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+
+        #combo-count {
+            font-size: 4rem;
+            font-weight: 900;
+            color: #fff;
+            text-shadow: 0 0 20px var(--theme-color), 0 0 40px var(--theme-color);
+            line-height: 1;
+        }
+
+        #combo-label {
+            font-size: 1.2rem;
+            letter-spacing: 4px;
+            color: var(--theme-color);
+        }
+
+        #feedback-text {
+            position: absolute;
+            top: 55%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 2rem;
+            font-weight: bold;
+            opacity: 0;
+            text-shadow: 0 0 10px currentColor;
+        }
+
+        /* Screen overlays */
+        .overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.92);
+            backdrop-filter: blur(8px);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 10;
+            pointer-events: auto;
+            transition: opacity 0.3s;
+        }
+
+        .hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        button {
+            background: transparent;
+            color: var(--theme-color);
+            border: 2px solid var(--theme-color);
+            padding: 15px 40px;
+            font-size: 1.5rem;
+            font-family: 'Orbitron', sans-serif;
+            text-transform: uppercase;
+            cursor: pointer;
+            transition: all 0.2s;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+            margin-top: 20px;
+        }
+
+        button:hover {
+            background: var(--theme-color);
+            color: #000;
+            box-shadow: 0 0 30px var(--theme-glow);
+        }
+
+        h1 {
+            font-size: 4rem;
+            margin-bottom: 10px;
+            background: linear-gradient(to bottom, #fff, var(--theme-color));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            filter: drop-shadow(0 0 15px var(--theme-glow));
+        }
+
+        .instruction {
+            color: #aaa;
+            margin-bottom: 30px;
+            font-size: 1rem;
+            max-width: 400px;
+            text-align: center;
+            line-height: 1.5;
+        }
+
+        /* Song Select Styles */
+        #song-list-container {
+            width: 100%;
+            max-width: 450px;
+            height: 300px;
+            overflow-y: auto;
+            padding-right: 10px;
+            margin-bottom: 1rem;
+            /* Scrollbar styling */
+            scrollbar-width: thin;
+            scrollbar-color: var(--theme-color) #111;
+        }
+
+        #song-list-container::-webkit-scrollbar {
+            width: 8px;
+        }
+        #song-list-container::-webkit-scrollbar-track {
+            background: #111;
+        }
+        #song-list-container::-webkit-scrollbar-thumb {
+            background-color: var(--theme-color);
+            border-radius: 4px;
+        }
+
+        .song-btn {
+            background: rgba(0, 0, 0, 0.6);
+            border: 1px solid var(--theme-color);
+            padding: 15px 20px;
+            width: 100%;
+            margin: 5px 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-align: left;
+        }
+
+        .song-btn:hover {
+            background: rgba(255, 255, 255, 0.1);
+            border-color: #fff;
+            transform: scale(1.01);
+            box-shadow: 0 0 15px var(--theme-glow);
+        }
+
+        .song-title {
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: white;
+        }
+
+        .song-meta {
+            font-size: 0.8rem;
+            color: var(--theme-color);
+        }
+
+        /* Settings Styles */
+        .settings-group {
+            width: 100%;
+            max-width: 400px;
+            margin-bottom: 25px;
+        }
+        
+        .settings-label {
+            display: block;
+            color: var(--theme-color);
+            margin-bottom: 10px;
+            font-size: 1.1rem;
+            font-weight: bold;
+        }
+
+        .color-options {
+            display: flex;
+            justify-content: space-between;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .color-opt {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            cursor: pointer;
+            border: 2px solid #333;
+            transition: transform 0.2s, border-color 0.2s;
+        }
+        
+        .color-opt.active {
+            border-color: #fff;
+            transform: scale(1.2);
+            box-shadow: 0 0 15px currentColor;
+        }
+
+        .rainbow-opt {
+            background: linear-gradient(135deg, #ff0000, #ff7f00, #ffff00, #00ff00, #0000ff, #4b0082, #9400d3);
+            box-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
+        }
+
+        /* Range Slider */
+        input[type=range] {
+            -webkit-appearance: none;
+            width: 100%;
+            background: transparent;
+        }
+        
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 20px;
+            width: 20px;
+            border-radius: 50%;
+            background: var(--theme-color);
+            cursor: pointer;
+            margin-top: -8px;
+            box-shadow: 0 0 10px var(--theme-color);
+        }
+
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 4px;
+            cursor: pointer;
+            background: #333;
+            border-radius: 2px;
+        }
+
+        /* Checkbox */
+        .checkbox-wrapper {
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+        }
+        
+        .checkbox-box {
+            width: 24px;
+            height: 24px;
+            border: 2px solid var(--theme-color);
+            margin-right: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .checkbox-box::after {
+            content: '';
+            width: 14px;
+            height: 14px;
+            background: var(--theme-color);
+            display: none;
+            box-shadow: 0 0 5px var(--theme-color);
+        }
+        
+        input[type=checkbox]:checked + .checkbox-box::after {
+            display: block;
+        }
+
+        /* Scanlines */
+        .scanlines {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(to bottom, rgba(255,255,255,0), rgba(255,255,255,0) 50%, rgba(0,0,0,0.1) 50%, rgba(0,0,0,0.1));
+            background-size: 100% 4px;
+            pointer-events: none;
+            z-index: 5;
+            opacity: 0.3;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="game-container">
+        <canvas id="gameCanvas"></canvas>
+        <div class="scanlines"></div>
+
+        <!-- Gameplay UI -->
+        <div id="game-ui" class="ui-layer hidden">
+            <!-- Progress Bar -->
+            <div id="song-progress-container" class="absolute top-0 left-0 w-full h-2 bg-gray-900/50 z-20">
+                <div id="song-progress-bar" class="h-full bg-cyan-400 w-0 transition-all duration-100 ease-linear shadow-[0_0_10px_currentColor]"></div>
+            </div>
+
+            <!-- Timer -->
+            <div id="time-display" class="absolute top-4 right-4 text-xl font-mono font-bold tracking-widest" style="color: var(--theme-color); text-shadow: 0 0 10px var(--theme-glow);">00:00</div>
+
+            <!-- Top Stats (Score/Mult) -->
+            <div id="ui-top">
+                <div class="stat-box">
+                    <div class="stat-label">SCORE</div>
+                    <div class="stat-value" id="score-display">000000</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-label">MULTIPLIER</div>
+                    <div class="stat-value" id="multiplier-display">x1</div>
+                </div>
+            </div>
+
+            <!-- Side Stats (Live Hits) -->
+            <div id="live-stats" class="absolute right-4 top-1/2 transform -translate-y-1/2 text-right hidden md:block">
+                <div class="mb-4 text-xs tracking-widest text-gray-500 uppercase">Accuracy</div>
+                <div class="mb-2 text-xl font-bold flex items-center justify-end gap-3">
+                    <span class="text-xs opacity-70 text-yellow-300">PERFECT</span> 
+                    <span id="live-perfect" class="text-yellow-300 w-12">0</span>
+                </div>
+                <div class="mb-2 text-xl font-bold flex items-center justify-end gap-3">
+                    <span class="text-xs opacity-70 text-green-300">GREAT</span> 
+                    <span id="live-great" class="text-green-300 w-12">0</span>
+                </div>
+                <div class="mb-2 text-xl font-bold flex items-center justify-end gap-3">
+                    <span class="text-xs opacity-70 text-blue-300">GOOD</span> 
+                    <span id="live-good" class="text-blue-300 w-12">0</span>
+                </div>
+                <div class="mb-2 text-xl font-bold flex items-center justify-end gap-3">
+                    <span class="text-xs opacity-70 text-red-500">MISS</span> 
+                    <span id="live-miss" class="text-red-500 w-12">0</span>
+                </div>
+            </div>
+            
+            <div id="combo-container">
+                <div id="combo-count">15</div>
+                <div id="combo-label">COMBO</div>
+            </div>
+
+            <div id="feedback-text">PERFECT</div>
+
+            <!-- Mobile Tap Area Indicator -->
+            <div class="text-center text-white/30 text-sm w-full absolute bottom-8 uppercase tracking-widest pointer-events-none">
+                Use Keys: D - F - J - K
+            </div>
+        </div>
+
+        <!-- Start Screen -->
+        <div id="start-screen" class="overlay">
+            <h1>NEON PULSE</h1>
+            <p class="instruction">
+                Select a track to initialize system.<br>
+                Use keys <strong>D, F, J, K</strong> to hit the notes.<br>
+                (Mobile: Tap columns)
+            </p>
+            <div id="song-list-container">
+                <div id="song-list" class="flex flex-col w-full items-center mb-4">
+                    <!-- Generated by JS -->
+                </div>
+            </div>
+            <button id="settings-btn" class="text-sm py-2 px-6 border border-white/30 text-white/70 hover:text-white mt-4 flex items-center gap-2">
+                <span>⚙</span> Settings
+            </button>
+        </div>
+
+        <!-- Settings Screen -->
+        <div id="settings-screen" class="overlay hidden">
+            <h2 class="text-3xl font-bold text-white mb-8 tracking-wider">SYSTEM CONFIG</h2>
+            
+            <div class="settings-group">
+                <label class="settings-label">THEME COLOR</label>
+                <div class="color-options" id="theme-selector">
+                    <div class="color-opt active" data-color="#00ffff" style="background-color: #00ffff; box-shadow: 0 0 10px #00ffff;"></div>
+                    <div class="color-opt" data-color="#ff00ff" style="background-color: #ff00ff; box-shadow: 0 0 10px #ff00ff;"></div>
+                    <div class="color-opt" data-color="#ffff00" style="background-color: #ffff00; box-shadow: 0 0 10px #ffff00;"></div>
+                    <div class="color-opt" data-color="#00ff00" style="background-color: #00ff00; box-shadow: 0 0 10px #00ff00;"></div>
+                    <div class="color-opt" data-color="#ff3333" style="background-color: #ff3333; box-shadow: 0 0 10px #ff3333;"></div>
+                    <div class="color-opt rainbow-opt" data-color="RGB" title="RGB Mode"></div>
+                </div>
+            </div>
+
+            <div class="settings-group">
+                <div class="flex justify-between mb-2">
+                    <label class="settings-label">SCROLL SPEED</label>
+                    <span id="speed-value" class="text-white font-mono">600</span>
+                </div>
+                <input type="range" id="speed-slider" min="300" max="1000" step="50" value="600">
+                <div class="flex justify-between text-xs text-gray-500 mt-1">
+                    <span>SLOW</span>
+                    <span>HYPER</span>
+                </div>
+            </div>
+
+            <div class="settings-group">
+                <label class="checkbox-wrapper">
+                    <input type="checkbox" id="shake-toggle" class="hidden" checked>
+                    <div class="checkbox-box"></div>
+                    <span class="text-white">SCREEN SHAKE EFFECTS</span>
+                </label>
+            </div>
+
+            <button id="close-settings-btn" class="mt-4">APPLY & RETURN</button>
+        </div>
+
+        <!-- Game Over Screen -->
+        <div id="end-screen" class="overlay hidden">
+            <h1 id="end-title">COMPLETE</h1>
+            <div class="text-2xl mb-2 text-cyan-300" style="color: var(--theme-color)">FINAL SCORE</div>
+            <div id="final-score" class="text-6xl font-bold text-white mb-6 text-shadow-glow">0</div>
+            
+            <div class="grid grid-cols-2 gap-4 text-left mb-8 text-sm">
+                <div class="text-gray-400">Perfect:</div><div id="stats-perfect" class="text-right text-yellow-300">0</div>
+                <div class="text-gray-400">Great:</div><div id="stats-great" class="text-right text-green-300">0</div>
+                <div class="text-gray-400">Good:</div><div id="stats-good" class="text-right text-blue-300">0</div>
+                <div class="text-gray-400">Miss:</div><div id="stats-miss" class="text-right text-red-500">0</div>
+                <div class="text-gray-400">Max Combo:</div><div id="stats-combo" class="text-right text-white">0</div>
+            </div>
+
+            <button id="restart-btn">RETRY SYSTEM</button>
+        </div>
+    </div>
+
+<script>
+/**
+ * AUDIO ENGINE
+ * Generates music procedurally using Web Audio API.
+ */
+class AudioEngine {
+    constructor() {
+        this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+        this.masterGain = this.ctx.createGain();
+        this.masterGain.gain.value = 0.4;
+        this.masterGain.connect(this.ctx.destination);
+        this.bpm = 120;
+        this.scheduleAheadTime = 0.1;
+        this.isPlaying = false;
+        this.reverb = this.createReverb();
+    }
+
+    setBpm(bpm) { this.bpm = bpm; }
+
+    createReverb() {
+        const length = this.ctx.sampleRate * 2;
+        const impulse = this.ctx.createBuffer(2, length, this.ctx.sampleRate);
+        const left = impulse.getChannelData(0);
+        const right = impulse.getChannelData(1);
+        for (let i = 0; i < length; i++) {
+            const decay = Math.pow(1 - i / length, 20);
+            left[i] = (Math.random() * 2 - 1) * decay;
+            right[i] = (Math.random() * 2 - 1) * decay;
+        }
+        const node = this.ctx.createConvolver();
+        node.buffer = impulse;
+        node.connect(this.masterGain);
+        return node;
+    }
+
+    playKick(time) {
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.frequency.setValueAtTime(150, time);
+        osc.frequency.exponentialRampToValueAtTime(0.01, time + 0.5);
+        gain.gain.setValueAtTime(1, time);
+        gain.gain.exponentialRampToValueAtTime(0.01, time + 0.5);
+        osc.connect(gain);
+        gain.connect(this.masterGain);
+        osc.start(time);
+        osc.stop(time + 0.5);
+    }
+
+    playSnare(time) {
+        const noiseBuffer = this.ctx.createBuffer(1, this.ctx.sampleRate * 0.2, this.ctx.sampleRate);
+        const output = noiseBuffer.getChannelData(0);
+        for (let i = 0; i < noiseBuffer.length; i++) output[i] = Math.random() * 2 - 1;
+        const noise = this.ctx.createBufferSource();
+        noise.buffer = noiseBuffer;
+        const noiseFilter = this.ctx.createBiquadFilter();
+        noiseFilter.type = 'highpass';
+        noiseFilter.frequency.value = 1000;
+        const noiseGain = this.ctx.createGain();
+        noiseGain.gain.setValueAtTime(1, time);
+        noiseGain.gain.exponentialRampToValueAtTime(0.01, time + 0.2);
+        
+        noise.connect(noiseFilter);
+        noiseFilter.connect(noiseGain);
+        noiseGain.connect(this.masterGain);
+        noiseGain.connect(this.reverb);
+        noise.start(time);
+
+        const osc = this.ctx.createOscillator();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(100, time);
+        const oscGain = this.ctx.createGain();
+        oscGain.gain.setValueAtTime(0.5, time);
+        oscGain.gain.exponentialRampToValueAtTime(0.01, time + 0.1);
+        osc.connect(oscGain);
+        oscGain.connect(this.masterGain);
+        osc.start(time);
+        osc.stop(time + 0.2);
+    }
+
+    playHiHat(time) {
+        const freqs = [800, 1200, 5000, 8000];
+        freqs.forEach(f => {
+            const o = this.ctx.createOscillator();
+            o.type = 'square';
+            o.frequency.value = f;
+            const g = this.ctx.createGain();
+            g.gain.value = 0.05;
+            g.gain.exponentialRampToValueAtTime(0.001, time + 0.05);
+            o.connect(g);
+            g.connect(this.masterGain);
+            o.start(time);
+            o.stop(time + 0.05);
+        });
+    }
+
+    playBass(time, note) {
+        const osc = this.ctx.createOscillator();
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(note, time);
+        const filter = this.ctx.createBiquadFilter();
+        filter.type = 'lowpass';
+        filter.frequency.setValueAtTime(200, time);
+        filter.frequency.linearRampToValueAtTime(1000, time + 0.1);
+        filter.frequency.linearRampToValueAtTime(200, time + 0.4);
+        const gain = this.ctx.createGain();
+        gain.gain.setValueAtTime(0.6, time);
+        gain.gain.setTargetAtTime(0, time + 0.1, 0.2);
+        osc.connect(filter);
+        filter.connect(gain);
+        gain.connect(this.masterGain);
+        osc.start(time);
+        osc.stop(time + 0.5);
+    }
+
+    playLead(time, freq) {
+         const osc = this.ctx.createOscillator();
+         osc.type = 'sine';
+         osc.frequency.setValueAtTime(freq, time);
+         const gain = this.ctx.createGain();
+         gain.gain.setValueAtTime(0.2, time);
+         gain.gain.exponentialRampToValueAtTime(0.001, time + 0.4);
+         const delay = this.ctx.createDelay();
+         delay.delayTime.value = 0.2;
+         const delayGain = this.ctx.createGain();
+         delayGain.gain.value = 0.4;
+         osc.connect(gain);
+         gain.connect(this.masterGain);
+         gain.connect(delay);
+         delay.connect(delayGain);
+         delayGain.connect(delay);
+         delay.connect(this.masterGain);
+         osc.start(time);
+         osc.stop(time + 1.0);
+    }
+
+    async start() {
+        if (this.ctx.state === 'suspended') await this.ctx.resume();
+        this.nextNoteTime = this.ctx.currentTime + 0.1;
+        this.isPlaying = true;
+    }
+
+    stop() {
+        this.isPlaying = false;
+        this.masterGain.gain.cancelScheduledValues(this.ctx.currentTime);
+        this.masterGain.gain.setValueAtTime(0, this.ctx.currentTime);
+        setTimeout(() => {
+            this.masterGain.gain.setValueAtTime(0.4, this.ctx.currentTime);
+        }, 100);
+    }
+
+    getCurrentTime() { return this.ctx.currentTime; }
+}
+
+/**
+ * GAME ENGINE
+ */
+const SONGS = [
+    { id: 'track1', title: 'Neon Drift', bpm: 110, length: 180, difficulty: 'EASY', color: '#00ff00' },
+    { id: 'track2', title: 'Cyber Sprint', bpm: 135, length: 240, difficulty: 'MEDIUM', color: '#ffff00' },
+    { id: 'track3', title: 'Hyper Pulse', bpm: 160, length: 300, difficulty: 'HARD', color: '#ff0000' },
+    // 22 New Songs
+    { id: 'track4', title: 'Velocity', bpm: 145, length: 210, difficulty: 'MEDIUM', color: '#00ffff' },
+    { id: 'track5', title: 'Circuit Breaker', bpm: 128, length: 195, difficulty: 'EASY', color: '#ff00ff' },
+    { id: 'track6', title: 'Data Stream', bpm: 150, length: 240, difficulty: 'HARD', color: '#00ffaa' },
+    { id: 'track7', title: 'Firewall', bpm: 170, length: 260, difficulty: 'HARD', color: '#ff3333' },
+    { id: 'track8', title: 'Glitch Protocol', bpm: 115, length: 180, difficulty: 'EASY', color: '#aa00ff' },
+    { id: 'track9', title: 'Synth Horizon', bpm: 132, length: 220, difficulty: 'MEDIUM', color: '#ffaa00' },
+    { id: 'track10', title: 'Laser Focus', bpm: 155, length: 230, difficulty: 'HARD', color: '#00ccff' },
+    { id: 'track11', title: 'Midnight Run', bpm: 125, length: 200, difficulty: 'MEDIUM', color: '#3333ff' },
+    { id: 'track12', title: 'Cyber Heart', bpm: 140, length: 215, difficulty: 'MEDIUM', color: '#ff0066' },
+    { id: 'track13', title: 'Logic Gate', bpm: 118, length: 190, difficulty: 'EASY', color: '#00ff00' },
+    { id: 'track14', title: 'Mainframe Access', bpm: 165, length: 250, difficulty: 'HARD', color: '#ff0000' },
+    { id: 'track15', title: 'Pixel Perfect', bpm: 138, length: 205, difficulty: 'MEDIUM', color: '#ffff00' },
+    { id: 'track16', title: 'Vector Graphics', bpm: 142, length: 225, difficulty: 'MEDIUM', color: '#00ffff' },
+    { id: 'track17', title: 'Retro Wave', bpm: 105, length: 175, difficulty: 'EASY', color: '#ff00ff' },
+    { id: 'track18', title: 'Grid Lock', bpm: 158, length: 245, difficulty: 'HARD', color: '#ff5500' },
+    { id: 'track19', title: 'System Shock', bpm: 175, length: 270, difficulty: 'HARD', color: '#ff0000' },
+    { id: 'track20', title: 'Memory Leak', bpm: 122, length: 185, difficulty: 'EASY', color: '#00ff88' },
+    { id: 'track21', title: 'Core Dump', bpm: 148, length: 235, difficulty: 'MEDIUM', color: '#4444ff' },
+    { id: 'track22', title: 'Zero Day', bpm: 162, length: 255, difficulty: 'HARD', color: '#ff00aa' },
+    { id: 'track23', title: 'Encryption', bpm: 130, length: 210, difficulty: 'MEDIUM', color: '#aaff00' },
+    { id: 'track24', title: 'Upload', bpm: 152, length: 240, difficulty: 'HARD', color: '#00aaff' },
+    { id: 'track25', title: 'Download', bpm: 112, length: 180, difficulty: 'EASY', color: '#aa00aa' }
+];
+
+const SETTINGS = {
+    themeColor: '#00ffff',
+    scrollSpeed: 600,
+    screenShake: true,
+    isRGB: false
+};
+
+const GAME_CONFIG = {
+    LANE_COUNT: 4,
+    LANE_WIDTH: 80, // Narrower to fit 4
+    NOTE_RADIUS: 25,
+    HIT_Y_PERCENT: 0.85,
+    PRE_SPAWN_TIME: 2.0 // calculated dynamically based on speed
+};
+
+const SCORING = {
+    PERFECT: { threshold: 0.070, score: 300, label: 'PERFECT', color: '#ffd700' },
+    GREAT: { threshold: 0.120, score: 200, label: 'GREAT', color: '#00ff00' },
+    GOOD: { threshold: 0.180, score: 100, label: 'GOOD', color: '#00bfff' },
+    MISS: { threshold: 0.300, score: 0, label: 'MISS', color: '#ff4444' }
+};
+
+class Game {
+    constructor() {
+        this.canvas = document.getElementById('gameCanvas');
+        this.ctx = this.canvas.getContext('2d');
+        this.audio = new AudioEngine();
+        
+        // UI Elements
+        this.ui = {
+            score: document.getElementById('score-display'),
+            multiplier: document.getElementById('multiplier-display'),
+            comboContainer: document.getElementById('combo-container'),
+            combo: document.getElementById('combo-count'),
+            feedback: document.getElementById('feedback-text'),
+            startScreen: document.getElementById('start-screen'),
+            songList: document.getElementById('song-list'),
+            endScreen: document.getElementById('end-screen'),
+            gameUI: document.getElementById('game-ui'),
+            settingsScreen: document.getElementById('settings-screen'),
+            settingsBtn: document.getElementById('settings-btn'),
+            closeSettingsBtn: document.getElementById('close-settings-btn'),
+            speedSlider: document.getElementById('speed-slider'),
+            speedValue: document.getElementById('speed-value'),
+            shakeToggle: document.getElementById('shake-toggle'),
+            themeSelector: document.getElementById('theme-selector'),
+            progressBar: document.getElementById('song-progress-bar'),
+            timeDisplay: document.getElementById('time-display'),
+            liveStats: {
+                perfect: document.getElementById('live-perfect'),
+                great: document.getElementById('live-great'),
+                good: document.getElementById('live-good'),
+                miss: document.getElementById('live-miss')
+            },
+            stats: {
+                perfect: document.getElementById('stats-perfect'),
+                great: document.getElementById('stats-great'),
+                good: document.getElementById('stats-good'),
+                miss: document.getElementById('stats-miss'),
+                combo: document.getElementById('stats-combo'),
+                finalScore: document.getElementById('final-score')
+            }
+        };
+
+        // State
+        this.state = 'MENU';
+        this.notes = [];
+        this.particles = [];
+        this.score = 0;
+        this.combo = 0;
+        this.maxCombo = 0;
+        this.multiplier = 1;
+        this.noteMap = [];
+        this.currentSong = null;
+        this.stats = { perfect: 0, great: 0, good: 0, miss: 0 };
+        this.startTime = 0;
+        this.screenShake = 0;
+        
+        // Input state
+        this.keyMap = {
+            'KeyD': 0,
+            'KeyF': 1,
+            'KeyJ': 2,
+            'KeyK': 3
+        };
+        this.activeKeys = [false, false, false, false];
+
+        // Init
+        this.resize();
+        window.addEventListener('resize', () => this.resize());
+        this.initMenu();
+        this.initSettings();
+
+        // Input handler
+        this.handleInput = this.handleInput.bind(this);
+        
+        window.addEventListener('keydown', (e) => {
+            if (this.state === 'PLAYING' && this.keyMap.hasOwnProperty(e.code)) {
+                if (!e.repeat) {
+                    const lane = this.keyMap[e.code];
+                    this.activeKeys[lane] = true;
+                    this.handleInput(lane);
+                }
+            }
+        });
+
+        window.addEventListener('keyup', (e) => {
+            if (this.keyMap.hasOwnProperty(e.code)) {
+                this.activeKeys[this.keyMap[e.code]] = false;
+            }
+        });
+
+        // Touch Input
+        this.canvas.addEventListener('touchstart', (e) => {
+            if (this.state === 'PLAYING') {
+                e.preventDefault();
+                for (let i = 0; i < e.changedTouches.length; i++) {
+                    const t = e.changedTouches[i];
+                    // Calculate column based on screen width
+                    const col = Math.floor((t.clientX / window.innerWidth) * 4);
+                    if (col >= 0 && col < 4) {
+                        this.activeKeys[col] = true;
+                        this.handleInput(col);
+                    }
+                }
+            }
+        }, {passive: false});
+
+        this.canvas.addEventListener('touchend', (e) => {
+             e.preventDefault();
+             // Simple reset for touch visual feedback (might not be perfect multi-touch release tracking but works for simple feedback)
+             // A better way is to track touch IDs, but for visuals a short timeout often suffices or checking touches
+             // Let's just reset all on end for safety or track specific touches.
+             // For simplicity in this constrained environment:
+             setTimeout(() => { this.activeKeys = [false, false, false, false]; }, 100);
+        });
+
+
+        document.getElementById('restart-btn').addEventListener('click', () => this.reset());
+
+        this.loop = this.loop.bind(this);
+        requestAnimationFrame(this.loop);
+    }
+
+    initSettings() {
+        // Open/Close
+        this.ui.settingsBtn.addEventListener('click', () => {
+            this.ui.startScreen.classList.add('hidden');
+            this.ui.settingsScreen.classList.remove('hidden');
+        });
+
+        this.ui.closeSettingsBtn.addEventListener('click', () => {
+            this.ui.settingsScreen.classList.add('hidden');
+            this.ui.startScreen.classList.remove('hidden');
+        });
+
+        // Theme Selector
+        const colorOpts = this.ui.themeSelector.querySelectorAll('.color-opt');
+        colorOpts.forEach(opt => {
+            opt.addEventListener('click', () => {
+                colorOpts.forEach(o => o.classList.remove('active'));
+                opt.classList.add('active');
+                
+                if (opt.dataset.color === 'RGB') {
+                    SETTINGS.isRGB = true;
+                } else {
+                    SETTINGS.isRGB = false;
+                    this.updateTheme(opt.dataset.color);
+                }
+            });
+        });
+
+        // Speed Slider
+        this.ui.speedSlider.addEventListener('input', (e) => {
+            SETTINGS.scrollSpeed = parseInt(e.target.value);
+            this.ui.speedValue.innerText = SETTINGS.scrollSpeed;
+        });
+
+        // Shake Toggle
+        this.ui.shakeToggle.addEventListener('change', (e) => {
+            SETTINGS.screenShake = e.target.checked;
+        });
+    }
+
+    updateTheme(color) {
+        SETTINGS.themeColor = color;
+        document.documentElement.style.setProperty('--theme-color', color);
+        document.documentElement.style.setProperty('--theme-glow', color + '80'); 
+        this.ui.progressBar.style.boxShadow = `0 0 10px ${color}`;
+        this.ui.progressBar.style.backgroundColor = color;
+    }
+
+    initMenu() {
+        this.ui.songList.innerHTML = '';
+        SONGS.forEach(song => {
+            const btn = document.createElement('div');
+            btn.className = 'song-btn';
+            btn.innerHTML = `
+                <div>
+                    <div class="song-title">${song.title}</div>
+                    <div class="song-meta">${song.bpm} BPM</div>
+                </div>
+                <div class="text-sm font-bold" style="color: ${song.color}">${song.difficulty}</div>
+            `;
+            btn.addEventListener('click', () => this.start(song));
+            this.ui.songList.appendChild(btn);
+        });
+    }
+
+    resize() {
+        this.canvas.width = window.innerWidth;
+        this.canvas.height = window.innerHeight;
+        
+        // Calculate lane positions
+        this.trackWidth = GAME_CONFIG.LANE_COUNT * GAME_CONFIG.LANE_WIDTH;
+        this.trackLeftX = (this.canvas.width - this.trackWidth) / 2;
+        this.hitY = this.canvas.height * GAME_CONFIG.HIT_Y_PERCENT;
+    }
+
+    getLaneX(laneIndex) {
+        return this.trackLeftX + (laneIndex * GAME_CONFIG.LANE_WIDTH) + (GAME_CONFIG.LANE_WIDTH / 2);
+    }
+
+    generateSong() {
+        this.noteMap = [];
+        const bpm = this.currentSong.bpm;
+        const difficulty = this.currentSong.difficulty;
+        const secondsPerBeat = 60.0 / bpm;
+        let time = 0;
+
+        time += secondsPerBeat * 4;
+
+        for (let i = 0; i < this.currentSong.length; i++) {
+            // Audio events
+            if (i % 4 === 0) this.noteMap.push({ time: time, type: 'KICK', audio: true });
+            if (i % 4 === 2) this.noteMap.push({ time: time, type: 'SNARE', audio: true });
+            if (i % 2 !== 0) this.noteMap.push({ time: time, type: 'HAT', audio: true });
+            if (i % 8 === 0) this.noteMap.push({ time: time, type: 'BASS', freq: 55, audio: true});
+            if (i % 8 === 3) this.noteMap.push({ time: time, type: 'BASS', freq: 65.41, audio: true});
+            if (i % 8 === 6) this.noteMap.push({ time: time, type: 'BASS', freq: 49, audio: true});
+
+            // Visual Notes Logic (4 Key)
+            let isNote = false;
+            let noteType = 'HIT';
+            
+            // Note logic varies by instrument for better feel
+            if (i % 4 === 0) { // Kick -> Center lanes (1, 2)
+                this.noteMap.push({ time: time, type: 'HIT', visual: true, lane: Math.random() > 0.5 ? 1 : 2 });
+                isNote = true;
+            }
+            else if (i % 4 === 2) { // Snare -> Outer lanes (0, 3)
+                this.noteMap.push({ time: time, type: 'HIT', visual: true, lane: Math.random() > 0.5 ? 0 : 3 });
+                isNote = true;
+            }
+            else if (difficulty !== 'EASY' && i % 2 !== 0) { // Offbeats/Hats -> random
+                 if (difficulty === 'HARD' || Math.random() > 0.5) {
+                    this.noteMap.push({ time: time, type: 'HIT', visual: true, lane: Math.floor(Math.random() * 4) });
+                    isNote = true;
+                 }
+            }
+            
+            // Complex rhythms for Hard
+            if (difficulty === 'HARD' && i > 32) {
+                 if (Math.random() > 0.8) {
+                      // Double hit
+                      const l1 = Math.floor(Math.random() * 4);
+                      let l2 = Math.floor(Math.random() * 4);
+                      while(l2 === l1) l2 = Math.floor(Math.random() * 4);
+                      this.noteMap.push({ time: time, type: 'HIT', visual: true, lane: l1 });
+                      this.noteMap.push({ time: time, type: 'HIT', visual: true, lane: l2 });
+                 }
+            }
+
+            if (isNote || (Math.random() > 0.7 && i % 4 === 0)) {
+                if (Math.random() > 0.5) this.noteMap.push({time: time, type: 'LEAD', audio: true});
+            }
+            time += secondsPerBeat;
+        }
+        this.endTime = time + 4;
+    }
+
+    reset() {
+        this.state = 'MENU';
+        this.ui.endScreen.classList.add('hidden');
+        this.ui.gameUI.classList.add('hidden');
+        this.ui.startScreen.classList.remove('hidden');
+        this.score = 0;
+        this.combo = 0;
+        this.multiplier = 1;
+        this.notes = [];
+        this.stats = { perfect: 0, great: 0, good: 0, miss: 0 };
+        this.activeKeys = [false, false, false, false];
+    }
+
+    async start(song) {
+        this.currentSong = song;
+        this.audio.setBpm(song.bpm);
+        this.generateSong();
+        
+        // Reset live stats UI
+        Object.values(this.ui.liveStats).forEach(el => el.innerText = '0');
+        this.ui.progressBar.style.width = '0%';
+        this.ui.timeDisplay.innerText = '00:00';
+
+        this.ui.startScreen.classList.add('hidden');
+        this.ui.gameUI.classList.remove('hidden');
+        this.state = 'PLAYING';
+        
+        await this.audio.start();
+        this.startTime = this.audio.getCurrentTime() + 2.0; 
+        this.updateScoreUI();
+    }
+
+    endGame() {
+        this.state = 'END';
+        this.audio.stop();
+        this.ui.gameUI.classList.add('hidden');
+        this.ui.endScreen.classList.remove('hidden');
+        
+        this.ui.stats.perfect.innerText = this.stats.perfect;
+        this.ui.stats.great.innerText = this.stats.great;
+        this.ui.stats.good.innerText = this.stats.good;
+        this.ui.stats.miss.innerText = this.stats.miss;
+        this.ui.stats.combo.innerText = this.maxCombo;
+        this.ui.stats.finalScore.innerText = this.score.toLocaleString();
+    }
+
+    handleInput(lane) {
+        const now = this.audio.getCurrentTime();
+        const trackTime = now - this.startTime;
+        
+        // Filter notes in correct lane
+        const hittableNotes = this.notes.filter(n => 
+            !n.hit && 
+            n.lane === lane &&
+            Math.abs(n.time - trackTime) < SCORING.MISS.threshold
+        );
+
+        if (hittableNotes.length === 0) return;
+
+        // Sort by time to get the one closest to now (or oldest)
+        hittableNotes.sort((a,b) => a.time - b.time);
+        
+        const note = hittableNotes[0];
+        const diff = Math.abs(note.time - trackTime);
+
+        let judgment = null;
+        if (diff <= SCORING.PERFECT.threshold) judgment = SCORING.PERFECT;
+        else if (diff <= SCORING.GREAT.threshold) judgment = SCORING.GREAT;
+        else if (diff <= SCORING.GOOD.threshold) judgment = SCORING.GOOD;
+        else judgment = SCORING.MISS;
+
+        if (judgment !== SCORING.MISS) {
+            note.hit = true;
+            this.processHit(judgment);
+            const laneX = this.getLaneX(lane);
+            this.createExplosion(laneX, this.hitY, judgment.color);
+            this.triggerScreenShake(judgment === SCORING.PERFECT ? 5 : 2);
+        } else {
+            note.hit = true; 
+            this.processMiss();
+        }
+    }
+
+    processHit(judgment) {
+        this.combo++;
+        if (this.combo > this.maxCombo) this.maxCombo = this.combo;
+        this.multiplier = 1 + Math.floor(this.combo / 10) * 0.5;
+        if (this.multiplier > 4) this.multiplier = 4;
+        this.score += judgment.score * this.multiplier;
+        
+        if (judgment === SCORING.PERFECT) { this.stats.perfect++; this.ui.liveStats.perfect.innerText = this.stats.perfect; }
+        if (judgment === SCORING.GREAT) { this.stats.great++; this.ui.liveStats.great.innerText = this.stats.great; }
+        if (judgment === SCORING.GOOD) { this.stats.good++; this.ui.liveStats.good.innerText = this.stats.good; }
+
+        this.showFeedback(judgment.label, judgment.color);
+        this.updateScoreUI();
+    }
+
+    processMiss() {
+        this.combo = 0;
+        this.multiplier = 1;
+        this.stats.miss++;
+        this.ui.liveStats.miss.innerText = this.stats.miss;
+        this.showFeedback("MISS", "#ff4444");
+        this.triggerScreenShake(15);
+        this.updateScoreUI();
+    }
+
+    showFeedback(text, color) {
+        const el = this.ui.feedback;
+        el.innerText = text;
+        el.style.color = color;
+        el.style.opacity = 1;
+        el.style.transform = 'translate(-50%, -50%) scale(1.5)';
+        requestAnimationFrame(() => {
+            el.style.transition = 'all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)';
+            el.style.transform = 'translate(-50%, -50%) scale(1)';
+            el.style.opacity = 0;
+        });
+        if (this.combo > 1) {
+            this.ui.comboContainer.style.opacity = 1;
+            this.ui.comboContainer.style.transform = 'translate(-50%, -50%) scale(1.2)';
+            setTimeout(() => {
+                this.ui.comboContainer.style.transform = 'translate(-50%, -50%) scale(1)';
+            }, 100);
+        } else {
+            this.ui.comboContainer.style.opacity = 0;
+        }
+    }
+
+    updateScoreUI() {
+        this.ui.score.innerText = Math.floor(this.score).toString().padStart(6, '0');
+        this.ui.multiplier.innerText = `x${this.multiplier.toFixed(1)}`;
+        this.ui.combo.innerText = this.combo;
+    }
+
+    createExplosion(x, y, color) {
+        for (let i = 0; i < 15; i++) {
+            this.particles.push({
+                x: x, y: y,
+                vx: (Math.random() - 0.5) * 15,
+                vy: (Math.random() - 0.5) * 15,
+                life: 1.0,
+                color: color,
+                size: Math.random() * 5 + 2
+            });
+        }
+    }
+
+    triggerScreenShake(intensity) {
+        if (SETTINGS.screenShake) {
+            this.screenShake = intensity;
+        }
+    }
+
+    loop() {
+        const now = this.audio.getCurrentTime();
+        
+        if (SETTINGS.isRGB) {
+            const hue = (Date.now() / 20) % 360;
+            const color = `hsl(${hue}, 100%, 50%)`;
+            this.updateTheme(color);
+        }
+
+        let shakeX = 0, shakeY = 0;
+        if (this.screenShake > 0) {
+            shakeX = (Math.random() - 0.5) * this.screenShake;
+            shakeY = (Math.random() - 0.5) * this.screenShake;
+            this.screenShake *= 0.9;
+            if (this.screenShake < 0.5) this.screenShake = 0;
+        }
+
+        this.ctx.fillStyle = '#050505';
+        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+
+        this.ctx.save();
+        this.ctx.translate(shakeX, shakeY);
+
+        const theme = SETTINGS.themeColor;
+
+        // Draw Lanes
+        for (let i = 0; i < GAME_CONFIG.LANE_COUNT; i++) {
+            const lx = this.trackLeftX + (i * GAME_CONFIG.LANE_WIDTH);
+            
+            // Lane BG
+            this.ctx.fillStyle = this.activeKeys[i] ? `${theme}33` : `${theme}11`; // Highlight on press
+            this.ctx.fillRect(lx, 0, GAME_CONFIG.LANE_WIDTH, this.canvas.height);
+            
+            // Lane Dividers
+            this.ctx.strokeStyle = `${theme}44`;
+            this.ctx.lineWidth = 2;
+            this.ctx.beginPath();
+            this.ctx.moveTo(lx, 0);
+            this.ctx.lineTo(lx, this.canvas.height);
+            this.ctx.stroke();
+
+            // Key indicators
+            this.ctx.fillStyle = this.activeKeys[i] ? '#fff' : theme;
+            this.ctx.font = 'bold 20px Orbitron';
+            this.ctx.textAlign = 'center';
+            this.ctx.fillText(['D','F','J','K'][i], lx + GAME_CONFIG.LANE_WIDTH/2, this.hitY + 60);
+        }
+        
+        // Right border
+        this.ctx.strokeStyle = `${theme}44`;
+        this.ctx.beginPath();
+        this.ctx.moveTo(this.trackLeftX + this.trackWidth, 0);
+        this.ctx.lineTo(this.trackLeftX + this.trackWidth, this.canvas.height);
+        this.ctx.stroke();
+
+        // Target Line
+        this.ctx.shadowBlur = 20;
+        this.ctx.shadowColor = theme;
+        this.ctx.strokeStyle = theme;
+        this.ctx.lineWidth = 4;
+        this.ctx.beginPath();
+        this.ctx.moveTo(this.trackLeftX, this.hitY);
+        this.ctx.lineTo(this.trackLeftX + this.trackWidth, this.hitY);
+        this.ctx.stroke();
+        this.ctx.shadowBlur = 0;
+
+        if (this.state === 'PLAYING') {
+            const trackTime = now - this.startTime;
+            const totalTime = this.endTime;
+            
+            // Timer/Progress
+            const timeLeft = Math.max(0, totalTime - trackTime);
+            const m = Math.floor(timeLeft / 60);
+            const s = Math.floor(timeLeft % 60).toString().padStart(2, '0');
+            this.ui.timeDisplay.innerText = `-${m}:${s}`;
+            const pct = Math.min(100, Math.max(0, (trackTime / totalTime) * 100));
+            this.ui.progressBar.style.width = `${pct}%`;
+
+            const travelTime = this.hitY / SETTINGS.scrollSpeed;
+            
+            while (this.noteMap.length > 0 && this.noteMap[0].time < trackTime + this.audio.scheduleAheadTime) { break; }
+            
+            this.noteMap.forEach(n => {
+                if (n.audio && !n.audioPlayed && n.time <= trackTime + this.audio.scheduleAheadTime) {
+                    const playTime = this.audio.getCurrentTime() + (n.time - trackTime);
+                    if (n.type === 'KICK') this.audio.playKick(playTime);
+                    if (n.type === 'SNARE') this.audio.playSnare(playTime);
+                    if (n.type === 'HAT') this.audio.playHiHat(playTime);
+                    if (n.type === 'BASS') this.audio.playBass(playTime, n.freq);
+                    if (n.type === 'LEAD') this.audio.playLead(playTime, 440);
+                    n.audioPlayed = true;
+                }
+                
+                if (n.visual && !n.spawned) {
+                    if (n.time <= trackTime + travelTime) {
+                         this.notes.push({
+                            time: n.time,
+                            hit: false,
+                            y: -100,
+                            lane: n.lane // Important!
+                        });
+                        n.spawned = true;
+                    }
+                }
+            });
+
+            for (let i = this.notes.length - 1; i >= 0; i--) {
+                const note = this.notes[i];
+                const timeDiff = note.time - trackTime;
+                
+                note.y = this.hitY - (timeDiff * SETTINGS.scrollSpeed);
+                const noteX = this.getLaneX(note.lane);
+
+                if (!note.hit) {
+                    this.ctx.fillStyle = '#ffffff';
+                    this.ctx.shadowBlur = 10;
+                    this.ctx.shadowColor = theme;
+                    
+                    this.ctx.beginPath();
+                    this.ctx.arc(noteX, note.y, GAME_CONFIG.NOTE_RADIUS, 0, Math.PI * 2);
+                    this.ctx.fill();
+
+                    this.ctx.fillStyle = theme;
+                    this.ctx.beginPath();
+                    this.ctx.arc(noteX, note.y, GAME_CONFIG.NOTE_RADIUS * 0.6, 0, Math.PI * 2);
+                    this.ctx.fill();
+                    
+                    this.ctx.shadowBlur = 0;
+                }
+
+                if (!note.hit && timeDiff < -SCORING.MISS.threshold) {
+                    this.processMiss();
+                    note.hit = true;
+                }
+                if (note.y > this.canvas.height + 100) this.notes.splice(i, 1);
+            }
+
+            if (trackTime > this.endTime) this.endGame();
+        }
+
+        for (let i = this.particles.length - 1; i >= 0; i--) {
+            const p = this.particles[i];
+            p.x += p.vx;
+            p.y += p.vy;
+            p.life -= 0.05;
+            if (p.life <= 0) {
+                this.particles.splice(i, 1);
+                continue;
+            }
+            this.ctx.globalAlpha = p.life;
+            this.ctx.fillStyle = p.color;
+            this.ctx.beginPath();
+            this.ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+            this.ctx.fill();
+            this.ctx.globalAlpha = 1.0;
+        }
+
+        this.ctx.restore();
+        requestAnimationFrame(this.loop);
+    }
+}
+
+window.onload = () => { const game = new Game(); };
+</script>
+</body>
+</html>
