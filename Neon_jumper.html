@@ -1,0 +1,997 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Neon Jumper Platformer</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #1a1a1a;
+            color: white;
+            font-family: 'Press Start 2P', cursive;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            overflow: hidden;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        #game-container {
+            position: relative;
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+        }
+
+        canvas {
+            background-color: #2d2d2d;
+            display: block;
+            border: 4px solid #4a4a4a;
+            border-radius: 4px;
+        }
+
+        #ui-layer {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            pointer-events: none;
+            text-shadow: 2px 2px 0 #000;
+        }
+
+        #level-display {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            pointer-events: none;
+            text-shadow: 2px 2px 0 #000;
+        }
+
+        /* Mobile Controls */
+        #controls {
+            display: none; /* Hidden by default, shown via JS on touch devices */
+            width: 100%;
+            max-width: 800px;
+            justify-content: space-between;
+            padding: 20px;
+            box-sizing: border-box;
+            position: absolute;
+            bottom: 20px;
+        }
+
+        .d-pad {
+            display: flex;
+            gap: 15px;
+        }
+
+        .action-btn {
+            display: flex;
+            gap: 15px;
+        }
+
+        .btn {
+            width: 60px;
+            height: 60px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            color: rgba(255, 255, 255, 0.7);
+            touch-action: manipulation;
+            cursor: pointer;
+            transition: background 0.1s;
+        }
+
+        .btn:active, .btn.active {
+            background: rgba(255, 255, 255, 0.3);
+            transform: scale(0.95);
+        }
+        
+        #btn-dash {
+            border-color: #60a5fa;
+            color: #60a5fa;
+        }
+
+        #btn-parry {
+            border-color: #f472b6;
+            color: #f472b6;
+        }
+
+        .btn-rect {
+            border-radius: 15px;
+            width: 70px;
+        }
+
+        #start-screen, #game-over-screen, #win-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.85);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            z-index: 10;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        h1 {
+            color: #4ade80;
+            text-shadow: 4px 4px 0 #000;
+            font-size: 32px;
+            margin-bottom: 20px;
+            line-height: 1.5;
+        }
+
+        p {
+            font-size: 14px;
+            color: #ccc;
+            margin-bottom: 30px;
+            line-height: 1.8;
+            max-width: 80%;
+        }
+
+        button.main-btn {
+            padding: 15px 30px;
+            font-family: 'Press Start 2P', cursive;
+            font-size: 16px;
+            background: #4ade80;
+            border: none;
+            color: #000;
+            cursor: pointer;
+            box-shadow: 4px 4px 0 #2e8f52;
+            transition: transform 0.1s;
+        }
+
+        button.main-btn:active {
+            transform: translate(4px, 4px);
+            box-shadow: none;
+        }
+
+        @media (max-width: 768px) {
+            #controls { display: flex; }
+            canvas { width: 100%; height: auto; }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="game-container">
+        <canvas id="gameCanvas" width="800" height="450"></canvas>
+        
+        <div id="ui-layer">Coins: <span id="score">0</span></div>
+        <div id="level-display">Level: <span id="level">1</span></div>
+
+        <div id="start-screen">
+            <h1>NEON JUMPER</h1>
+            <p>Move: Arrows / WASD<br>Jump: Space / Up<br>Dash: Shift / Z<br>Parry: X / F</p>
+            <button class="main-btn" onclick="startGame()">START GAME</button>
+        </div>
+
+        <div id="game-over-screen" class="hidden">
+            <h1 style="color: #ef4444">GAME OVER</h1>
+            <p>You hit a spike or enemy.</p>
+            <button class="main-btn" onclick="resetGame()">TRY AGAIN</button>
+        </div>
+
+        <div id="win-screen" class="hidden">
+            <h1 style="color: #fbbf24">YOU WON!</h1>
+            <p>All levels completed!<br>Great job!</p>
+            <button class="main-btn" onclick="resetGame()">PLAY AGAIN</button>
+        </div>
+    </div>
+
+    <!-- Mobile Controls -->
+    <div id="controls">
+        <div class="d-pad">
+            <div class="btn btn-rect" id="btn-left">←</div>
+            <div class="btn btn-rect" id="btn-right">→</div>
+        </div>
+        <div class="action-btn">
+            <div class="btn" id="btn-dash">DASH</div>
+            <div class="btn" id="btn-parry">PARRY</div>
+            <div class="btn" id="btn-jump">JUMP</div>
+        </div>
+    </div>
+
+    <script>
+        // --- Configuration ---
+        const TILE_SIZE = 32;
+        // Tweaked physics for "Slower & Controllable" feel
+        const GRAVITY = 0.45;       // Reduced gravity (was 0.65)
+        const FRICTION = 0.75;      // More drag/friction (was 0.82) - stops faster
+        const MOVE_SPEED = 1.0;     // Faster acceleration (was 0.8) to counter friction
+        const JUMP_FORCE = -10.5;   // Adjusted jump (was -12.5) to match gravity
+        const MAX_SPEED = 6.0;      // Lower top speed (was 7.5) for control
+        const MAX_FALL_SPEED = 9.0; // Cap falling speed
+        const DASH_SPEED = 16;
+        const PARRY_DURATION = 30; 
+        const PARRY_COOLDOWN = 45; 
+        const COYOTE_TIME = 6;     
+        const JUMP_BUFFER = 5;     
+
+        // --- Game State ---
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const scoreEl = document.getElementById('score');
+        const levelEl = document.getElementById('level');
+        const screens = {
+            start: document.getElementById('start-screen'),
+            gameOver: document.getElementById('game-over-screen'),
+            win: document.getElementById('win-screen')
+        };
+
+        let gameState = 'START'; 
+        let currentLevelIdx = 0;
+        let score = 0;
+        let particles = [];
+        let camera = { x: 0, y: 0 };
+        let isTransitioning = false;
+
+        // --- Inputs ---
+        const keys = {
+            left: false,
+            right: false,
+            up: false,
+            dash: false,
+            parry: false
+        };
+
+        // --- Levels (1=Wall, 0=Air, P=Player, C=Coin, S=Spike, E=Exit, M=Monster) ---
+        // Redesigned for smoother flow
+        const levels = [
+            // Level 1: The New Beginning (Run & Jump flow)
+            [
+                "11111111111111111111111111111111111111111",
+                "1P000000000000000000000000000000000000001",
+                "11111000000000000000000000000000000000001",
+                "10000000111110000000000000000000000000001",
+                "1000000000000000011100000000000000000E001",
+                "10000000000000000000000111100000111111111",
+                "100000C0000000C00000000000000000000000001",
+                "11111111111111110000000000000111111111111",
+                "10000000000000000000000000000000000000001",
+                "10000000000000000011110000000000000000001",
+                "11111111111111111111111111111111111111111"
+            ],
+            // Level 2: Momentum (Use speed to cross gaps)
+            [
+                "11111111111111111111111111111111111111111111111",
+                "10000000000000000000000000000000000000000000001",
+                "10P00000000000000000000000000000000000000000001",
+                "11111000000000000000000000000000000000000000001",
+                "10000000111110000000000000111110000000000000001",
+                "100000000000000011110000000000000000111100E0001",
+                "10000000000000000000000000000000000000000111111",
+                "1000C00000M00000000C000000M00000000000000000001",
+                "11111111111111111111111111111111111000000000001",
+                "10000000000000000000000000000000000000000000001",
+                "11111111111111111111111111111111111111111111111"
+            ],
+            // Level 3: The Drop (Vertical movement test)
+            [
+                "111111111111111",
+                "1E0000000000001",
+                "111100000000001",
+                "100000000000001",
+                "100011110000001",
+                "100000000000C01",
+                "100000000011111",
+                "100000000000001",
+                "101111000000001",
+                "100000000000001",
+                "10000000000M001",
+                "100000001111111",
+                "100000000000001",
+                "10C000000000001",
+                "111110000000001",
+                "100000000000001",
+                "1P0000000000001",
+                "111111111111111"
+            ],
+            // Level 4: Dash Training (Wide gaps)
+            [
+                "111111111111111111111111111111111",
+                "1P0000000000000000000000000000001",
+                "111110000000000000000000000000001",
+                "10000000000000000000000000000E001",
+                "100000011100000000000111000011111",
+                "100000000000000000000000000000001",
+                "1000C000000000C000000000000000001",
+                "111111000000111111000000111111111",
+                "100000000000000000000000000000001",
+                "10000000S0000000000S0000000000001",
+                "111111111111111111111111111111111"
+            ],
+            // Level 5: Parry City (Lots of enemies)
+            [
+                "111111111111111111111111111111111",
+                "1P0000000000000000000000000000001",
+                "111100000000000000000000000000001",
+                "100000001111111111111111111000001",
+                "1000000000000M00000M0000000000001",
+                "10000000000111111111111000000E001",
+                "100000000000000000000000000111111",
+                "1000C0000000000000000000000000001",
+                "111111100000000000000000000000001",
+                "100000000001111111000011111100001",
+                "10000000000000M000000000M00000001",
+                "111111111111111111111111111111111"
+            ],
+            // Level 6: The Climb (Vertical with hazards)
+            [
+                "1111111111111",
+                "1E000001000C1",
+                "1110000100011",
+                "1000000000001",
+                "1000111000001",
+                "1000000M00001",
+                "1000000111111",
+                "1100000000001",
+                "1000000000001",
+                "1000001110001",
+                "10000000C0001",
+                "1111000000001",
+                "1000000000001",
+                "1000000011111",
+                "1000000000001",
+                "1000111000M01",
+                "1000000001111",
+                "1000000000001",
+                "1000000011111",
+                "1000000000001",
+                "1000111000001",
+                "1000000000001",
+                "1P00000000001",
+                "1111111111111"
+            ],
+            // Level 7: Zig Zag (Tight maneuvering)
+            [
+                "1111111111111111111111111",
+                "1P00000000000000000000001",
+                "1111000000000000000000001",
+                "100000011100000000C000001",
+                "1000000000000011111111001",
+                "1000000000000000000000001",
+                "100C000000111000000000001",
+                "1000000000000000111000001",
+                "1000000000000000000000E01",
+                "1000111111111000000011111",
+                "1000000S00000000000000001",
+                "1111111111111111111111111"
+            ],
+             // Level 8: Island Hopping (Precision)
+            [
+                "11111111111111111111111111111111111111111",
+                "100000000000000000000000000000000000000E1",
+                "10000000000000000000000000000000000000111",
+                "10P00000000000000000000000000000000011101",
+                "11110000000000000000000000000000001100001",
+                "10000000000000000000000000000000110000001",
+                "10000000111000000000011100000011000000001",
+                "10000000000001110000000000110000000M00001",
+                "10000000000000000000000000000000011111001",
+                "1000C000000000000C00000000000000000000001",
+                "111SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS1",
+                "11111111111111111111111111111111111111111"
+            ],
+            // Level 9: The Box (Claustrophobic)
+             [
+                "111111111111111111111111",
+                "1E00000000000000000000C1",
+                "111111111111100111100111",
+                "100000000000000000000001",
+                "1000000000000000000M0001",
+                "100100100000100100111001",
+                "10010010P000100100100001",
+                "100100111111100100100001",
+                "100000000000000000000001",
+                "1000000000000000000M0001",
+                "111SSSSSSSSSSSSSSSSSSSSS1",
+                "1111111111111111111111111"
+            ],
+            // Level 10: Final Gauntlet
+            [
+                "11111111111111111111111111111111111111111111111111111",
+                "1P000000000000000000000000000000000000000000000000001",
+                "11111000000000000000000000000000000000000000000000001",
+                "10000000111100000000000000000000000000000000000000001",
+                "10000000000000000111000000000000000011100000000000001",
+                "10000000000000000000000000000000000000000000000000001",
+                "10000000000000000000000111000000000000000000111000001",
+                "100C000000M000000000000C000000000000000000C0000000001",
+                "11110000111111000000000001111100000000000011111100001",
+                "10000000000000000000000000000000000000000000000000001",
+                "100000000000000000000000000000000000000000000000E0001",
+                "10001110000000000000111111000111000000000011111100001",
+                "10000000000000000000000000000000000000000000000000001",
+                "100000000S000S000S000000000000000S000S000S00000000001",
+                "11111111111111111111111111111111111111111111111111111"
+            ]
+        ];
+
+        // --- Classes ---
+
+        class Player {
+            constructor(x, y) {
+                this.x = x;
+                this.y = y;
+                this.width = TILE_SIZE - 4;
+                this.height = TILE_SIZE - 4;
+                this.vx = 0;
+                this.vy = 0;
+                this.grounded = false;
+                this.color = '#4ade80';
+                this.facing = 1; 
+                
+                // Jump Physics Improvements
+                this.maxJumps = 2;
+                this.jumpsRemaining = 0;
+                this.coyoteTimer = 0; // Frames allowed to jump after leaving ground
+                this.jumpBuffer = 0;  // Frames to remember jump press
+                
+                // Dash Variables
+                this.canDash = true;
+                this.isDashing = false;
+                this.dashTimer = 0;
+                this.wasDashKeyDown = false;
+
+                // Parry Variables
+                this.isParrying = false;
+                this.parryTimer = 0;
+                this.parryCooldown = 0;
+                this.wasParryKeyDown = false;
+            }
+
+            update(mapWidth, mapHeight, tiles) {
+                if (keys.left) this.facing = -1;
+                if (keys.right) this.facing = 1;
+
+                // --- PARRY ---
+                if (this.parryCooldown > 0) this.parryCooldown--;
+                if (this.parryTimer > 0) {
+                    this.parryTimer--;
+                    if (this.parryTimer <= 0) this.isParrying = false;
+                }
+                if (keys.parry && !this.wasParryKeyDown && this.parryCooldown <= 0 && !this.isDashing) {
+                    this.isParrying = true;
+                    this.parryTimer = PARRY_DURATION;
+                    this.parryCooldown = PARRY_COOLDOWN;
+                    createParticles(this.x + this.width/2, this.y + this.height/2, 5, '#f472b6');
+                }
+                this.wasParryKeyDown = keys.parry;
+
+                // --- DASH ---
+                if (keys.dash && !this.wasDashKeyDown && this.canDash && !this.isDashing && !this.isParrying) {
+                    this.startDash();
+                }
+                this.wasDashKeyDown = keys.dash;
+
+                if (this.isDashing) {
+                    this.vx = this.facing * DASH_SPEED;
+                    this.vy = 0;
+                    this.dashTimer--;
+                    createParticles(this.x + this.width/2, this.y + this.height/2, 1, '#60a5fa');
+
+                    if (this.dashTimer <= 0) {
+                        this.isDashing = false;
+                        this.vx = this.facing * MAX_SPEED; 
+                    }
+                    this.x += this.vx;
+                    this.handleCollisions(tiles, 'x');
+                    this.y += this.vy;
+                    this.handleCollisions(tiles, 'y');
+
+                } else {
+                    // --- NORMAL MOVEMENT ---
+                    if (!this.isParrying) {
+                        // Apply acceleration instead of instant speed
+                        if (keys.left) this.vx -= MOVE_SPEED;
+                        if (keys.right) this.vx += MOVE_SPEED;
+                    }
+
+                    // Friction & Max Speed
+                    this.vx *= FRICTION;
+                    // Snap to 0 if very slow
+                    if (Math.abs(this.vx) < 0.05) this.vx = 0;
+                    
+                    // Clamp Max Speed
+                    if (this.vx > MAX_SPEED) this.vx = MAX_SPEED;
+                    if (this.vx < -MAX_SPEED) this.vx = -MAX_SPEED;
+
+                    this.vy += GRAVITY;
+                    
+                    // Cap falling speed
+                    if (this.vy > MAX_FALL_SPEED) this.vy = MAX_FALL_SPEED;
+
+                    // Move X
+                    this.x += this.vx;
+                    this.handleCollisions(tiles, 'x');
+
+                    // Move Y
+                    this.y += this.vy;
+                    // Store previous grounded state to detect falling
+                    const wasGrounded = this.grounded;
+                    this.grounded = false; 
+                    this.handleCollisions(tiles, 'y');
+
+                    // --- JUMP LOGIC with Coyote & Buffer ---
+                    
+                    // 1. Update Coyote Time
+                    if (this.grounded) {
+                        this.coyoteTimer = COYOTE_TIME;
+                        this.jumpsRemaining = this.maxJumps;
+                        this.canDash = true;
+                    } else {
+                        if (this.coyoteTimer > 0) this.coyoteTimer--;
+                    }
+
+                    // 2. Update Jump Buffer
+                    if (keys.up && !this.wasJumpKeyDown) {
+                        this.jumpBuffer = JUMP_BUFFER;
+                    } else {
+                        if (this.jumpBuffer > 0) this.jumpBuffer--;
+                    }
+                    this.wasJumpKeyDown = keys.up;
+
+                    // 3. Execute Jump
+                    if (this.jumpBuffer > 0) {
+                        // Ground Jump (using Coyote Time)
+                        if (this.coyoteTimer > 0) {
+                            this.performJump();
+                            this.coyoteTimer = 0; // Consume coyote time
+                        }
+                        // Air Jump
+                        else if (this.jumpsRemaining > 0 && this.jumpsRemaining < this.maxJumps) {
+                            this.performJump();
+                        }
+                    }
+                }
+
+                // Screen Boundaries
+                if (this.y > mapHeight * TILE_SIZE + 100) {
+                    die();
+                }
+            }
+
+            performJump() {
+                this.vy = JUMP_FORCE;
+                this.grounded = false;
+                this.jumpBuffer = 0; // Consume buffer
+                this.jumpsRemaining--;
+                
+                // Particles
+                if (this.jumpsRemaining === this.maxJumps - 1) {
+                    createParticles(this.x + this.width/2, this.y + this.height, 5, '#fff');
+                } else {
+                    createParticles(this.x + this.width/2, this.y + this.height, 8, '#4ade80');
+                }
+            }
+
+            startDash() {
+                this.isDashing = true;
+                this.canDash = false;
+                this.dashTimer = 10; 
+                createParticles(this.x + this.width/2, this.y + this.height/2, 10, '#60a5fa');
+            }
+
+            handleCollisions(tiles, axis) {
+                for (let tile of tiles) {
+                    if (tile.type === '0') continue; // Air
+                    
+                    if (this.checkCollision(this, tile)) {
+                        if (tile.type === '1') {
+                            // Wall Collision
+                            if (axis === 'x') {
+                                if (this.vx > 0) this.x = tile.x - this.width;
+                                else if (this.vx < 0) this.x = tile.x + tile.width;
+                                this.vx = 0;
+                            } else {
+                                if (this.vy > 0) { // Landing
+                                    this.y = tile.y - this.height;
+                                    this.grounded = true;
+                                    this.vy = 0;
+                                } else if (this.vy < 0) { // Hitting head
+                                    this.y = tile.y + tile.height;
+                                    this.vy = 0;
+                                }
+                            }
+                        } else if (tile.type === 'C') {
+                            score += 10;
+                            scoreEl.innerText = score;
+                            tile.collected = true; 
+                            createParticles(tile.x + TILE_SIZE/2, tile.y + TILE_SIZE/2, 10, '#fbbf24');
+                        } else if (tile.type === 'S') {
+                            die();
+                        } else if (tile.type === 'E') {
+                            if (Math.abs(this.x - tile.x) < 10 && Math.abs(this.y - tile.y) < 10) {
+                                nextLevel();
+                            }
+                        }
+                    }
+                }
+            }
+
+            checkCollision(rect1, rect2) {
+                return (rect1.x < rect2.x + rect2.width &&
+                        rect1.x + rect1.width > rect2.x &&
+                        rect1.y < rect2.y + rect2.height &&
+                        rect1.y + rect1.height > rect2.y);
+            }
+
+            draw(ctx) {
+                if (this.isParrying) ctx.fillStyle = '#f472b6';
+                else if (this.isDashing) ctx.fillStyle = '#60a5fa';
+                else ctx.fillStyle = this.color;
+
+                ctx.fillRect(this.x, this.y, this.width, this.height);
+                
+                ctx.fillStyle = 'black';
+                let lookDir = this.facing === 1 ? 4 : -4;
+                ctx.fillRect(this.x + 8 + lookDir, this.y + 6, 4, 4);
+                ctx.fillRect(this.x + 20 + lookDir, this.y + 6, 4, 4);
+
+                if (this.isParrying) {
+                    ctx.save();
+                    
+                    // Calculate pulse and fade based on remaining timer
+                    const percentLeft = this.parryTimer / PARRY_DURATION;
+                    const pulse = Math.sin(Date.now() / 50) * 3; 
+                    
+                    // Outer Glow
+                    ctx.shadowBlur = 15;
+                    ctx.shadowColor = '#f472b6';
+                    
+                    // Shield Ring
+                    ctx.strokeStyle = `rgba(255, 255, 255, ${percentLeft})`;
+                    ctx.lineWidth = 3;
+                    ctx.beginPath();
+                    // Radius pulses slightly for effect
+                    ctx.arc(this.x + this.width/2, this.y + this.height/2, 32 + pulse, 0, Math.PI * 2);
+                    ctx.stroke();
+
+                    // Inner Energy Field (Semi-transparent)
+                    ctx.fillStyle = `rgba(244, 114, 182, ${percentLeft * 0.4})`;
+                    ctx.fill();
+                    
+                    ctx.restore();
+                }
+            }
+        }
+
+        class Enemy {
+            constructor(x, y) {
+                this.x = x * TILE_SIZE;
+                this.y = y * TILE_SIZE;
+                this.width = TILE_SIZE;
+                this.height = TILE_SIZE;
+                this.vx = 2; // Patrol speed
+                this.facing = 1;
+                this.type = 'M';
+            }
+
+            update(tiles) {
+                this.x += this.vx;
+                
+                let hitWall = false;
+                let onGround = false;
+
+                let probeX = this.vx > 0 ? this.x + this.width : this.x;
+                let probeY = this.y + this.height + 2; 
+
+                for (let tile of tiles) {
+                    if (tile.type === '1') {
+                        if (this.checkCollision(this, tile)) {
+                            hitWall = true;
+                        }
+                        if (probeX >= tile.x && probeX <= tile.x + tile.width &&
+                            probeY >= tile.y && probeY <= tile.y + tile.height) {
+                            onGround = true;
+                        }
+                    }
+                }
+
+                if (hitWall || !onGround) {
+                    this.x -= this.vx; 
+                    this.vx *= -1;     
+                    this.facing *= -1;
+                }
+            }
+
+            checkCollision(rect1, rect2) {
+                return (rect1.x < rect2.x + rect2.width &&
+                        rect1.x + rect1.width > rect2.x &&
+                        rect1.y < rect2.y + rect2.height &&
+                        rect1.y + rect1.height > rect2.y);
+            }
+
+            draw(ctx) {
+                ctx.fillStyle = '#ef4444'; 
+                ctx.fillRect(this.x, this.y, this.width, this.height);
+                
+                ctx.fillStyle = 'black';
+                let lookDir = this.facing === 1 ? 4 : -4;
+                ctx.beginPath();
+                ctx.moveTo(this.x + 6 + lookDir, this.y + 10);
+                ctx.lineTo(this.x + 14 + lookDir, this.y + 14);
+                ctx.moveTo(this.x + 26 + lookDir, this.y + 10);
+                ctx.lineTo(this.x + 18 + lookDir, this.y + 14);
+                ctx.stroke();
+
+                ctx.fillRect(this.x + 8 + lookDir, this.y + 14, 4, 4);
+                ctx.fillRect(this.x + 20 + lookDir, this.y + 14, 4, 4);
+            }
+        }
+
+        class Tile {
+            constructor(x, y, type) {
+                this.x = x * TILE_SIZE;
+                this.y = y * TILE_SIZE;
+                this.width = TILE_SIZE;
+                this.height = TILE_SIZE;
+                this.type = type;
+                this.collected = false;
+            }
+
+            draw(ctx) {
+                if (this.type === '1') {
+                    ctx.fillStyle = '#4b5563';
+                    ctx.fillRect(this.x, this.y, TILE_SIZE, TILE_SIZE);
+                    ctx.strokeStyle = '#6b7280';
+                    ctx.lineWidth = 2;
+                    ctx.strokeRect(this.x, this.y, TILE_SIZE, TILE_SIZE);
+                } else if (this.type === 'S') {
+                    ctx.fillStyle = '#ef4444';
+                    ctx.beginPath();
+                    ctx.moveTo(this.x, this.y + TILE_SIZE);
+                    ctx.lineTo(this.x + TILE_SIZE / 2, this.y);
+                    ctx.lineTo(this.x + TILE_SIZE, this.y + TILE_SIZE);
+                    ctx.fill();
+                } else if (this.type === 'C' && !this.collected) {
+                    const floatOffset = Math.sin(Date.now() / 200) * 3;
+                    ctx.fillStyle = '#fbbf24';
+                    ctx.beginPath();
+                    ctx.arc(this.x + TILE_SIZE/2, this.y + TILE_SIZE/2 + floatOffset, 8, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.strokeStyle = '#f59e0b';
+                    ctx.lineWidth = 2;
+                    ctx.stroke();
+                } else if (this.type === 'E') {
+                    ctx.fillStyle = '#10b981';
+                    ctx.globalAlpha = 0.5 + Math.sin(Date.now() / 300) * 0.2;
+                    ctx.fillRect(this.x, this.y, TILE_SIZE, TILE_SIZE);
+                    ctx.globalAlpha = 1.0;
+                    ctx.strokeStyle = '#fff';
+                    ctx.strokeRect(this.x, this.y, TILE_SIZE, TILE_SIZE);
+                }
+            }
+        }
+
+        class Particle {
+            constructor(x, y, color) {
+                this.x = x;
+                this.y = y;
+                this.color = color;
+                this.vx = (Math.random() - 0.5) * 5;
+                this.vy = (Math.random() - 0.5) * 5;
+                this.life = 1.0;
+                this.decay = 0.02 + Math.random() * 0.03;
+            }
+            update() {
+                this.x += this.vx;
+                this.y += this.vy;
+                this.life -= this.decay;
+            }
+            draw(ctx) {
+                ctx.globalAlpha = this.life;
+                ctx.fillStyle = this.color;
+                ctx.fillRect(this.x, this.y, 4, 4);
+                ctx.globalAlpha = 1.0;
+            }
+        }
+
+        // --- Game Logic ---
+
+        let player;
+        let tiles = [];
+        let enemies = [];
+        let levelWidth, levelHeight;
+
+        function initLevel(levelIndex) {
+            tiles = [];
+            enemies = [];
+            const layout = levels[levelIndex];
+            levelHeight = layout.length;
+            levelWidth = layout[0].length;
+
+            for (let y = 0; y < layout.length; y++) {
+                for (let x = 0; x < layout[y].length; x++) {
+                    const type = layout[y][x];
+                    if (type === 'P') {
+                        player = new Player(x * TILE_SIZE, y * TILE_SIZE);
+                    } else if (type === 'M') {
+                        enemies.push(new Enemy(x, y));
+                    } else if (type !== '0') {
+                        tiles.push(new Tile(x, y, type));
+                    }
+                }
+            }
+            
+            particles = [];
+            levelEl.innerText = levelIndex + 1;
+        }
+
+        function createParticles(x, y, count, color) {
+            for (let i = 0; i < count; i++) {
+                particles.push(new Particle(x, y, color));
+            }
+        }
+
+        function die() {
+            createParticles(player.x, player.y, 20, '#4ade80');
+            initLevel(currentLevelIdx);
+            score = Math.max(0, score - 5); 
+            scoreEl.innerText = score;
+        }
+
+        function nextLevel() {
+            if (isTransitioning) return;
+            isTransitioning = true;
+            
+            currentLevelIdx++;
+            if (currentLevelIdx >= levels.length) {
+                gameState = 'WIN';
+                screens.win.classList.remove('hidden');
+            } else {
+                initLevel(currentLevelIdx);
+            }
+
+            setTimeout(() => { isTransitioning = false; }, 500);
+        }
+
+        function startGame() {
+            score = 0;
+            currentLevelIdx = 0;
+            scoreEl.innerText = score;
+            initLevel(currentLevelIdx);
+            gameState = 'PLAYING';
+            screens.start.classList.add('hidden');
+            screens.gameOver.classList.add('hidden');
+            screens.win.classList.add('hidden');
+            loop();
+        }
+
+        function resetGame() {
+            startGame();
+        }
+
+        function update() {
+            if (gameState !== 'PLAYING') return;
+
+            tiles = tiles.filter(t => !(t.type === 'C' && t.collected));
+
+            player.update(levelWidth, levelHeight, tiles);
+
+            for (let i = enemies.length - 1; i >= 0; i--) {
+                let enemy = enemies[i];
+                enemy.update(tiles);
+
+                // Player <-> Enemy Collision
+                // Use a slightly forgiving hitbox for the player
+                if (player.checkCollision(player, enemy)) {
+                    if (player.isParrying) {
+                        createParticles(enemy.x + enemy.width/2, enemy.y + enemy.height/2, 15, '#ef4444');
+                        enemies.splice(i, 1);
+                        score += 20; 
+                        scoreEl.innerText = score;
+                    } else {
+                        die();
+                    }
+                }
+            }
+
+            for (let i = particles.length - 1; i >= 0; i--) {
+                particles[i].update();
+                if (particles[i].life <= 0) particles.splice(i, 1);
+            }
+
+            const targetCamX = player.x - canvas.width / 2 + player.width / 2;
+            const targetCamY = player.y - canvas.height / 2 + player.height / 2;
+            camera.x += (targetCamX - camera.x) * 0.1;
+            camera.y += (targetCamY - camera.y) * 0.1;
+
+            camera.x = Math.max(0, Math.min(camera.x, levelWidth * TILE_SIZE - canvas.width));
+            camera.y = Math.max(0, Math.min(camera.y, levelHeight * TILE_SIZE - canvas.height));
+        }
+
+        function draw() {
+            ctx.fillStyle = '#2d2d2d';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            if (gameState !== 'PLAYING') return;
+
+            ctx.save();
+            ctx.translate(-Math.floor(camera.x), -Math.floor(camera.y));
+
+            for (let tile of tiles) {
+                if (tile.x + TILE_SIZE > camera.x && tile.x < camera.x + canvas.width &&
+                    tile.y + TILE_SIZE > camera.y && tile.y < camera.y + canvas.height) {
+                    tile.draw(ctx);
+                }
+            }
+
+            for (let enemy of enemies) {
+                 if (enemy.x + TILE_SIZE > camera.x && enemy.x < camera.x + canvas.width &&
+                    enemy.y + TILE_SIZE > camera.y && enemy.y < camera.y + canvas.height) {
+                    enemy.draw(ctx);
+                }
+            }
+
+            for (let p of particles) p.draw(ctx);
+            player.draw(ctx);
+            ctx.restore();
+        }
+
+        function loop() {
+            if (gameState === 'PLAYING') {
+                update();
+                draw();
+                requestAnimationFrame(loop);
+            }
+        }
+
+        // --- Input Handling ---
+
+        window.addEventListener('keydown', e => {
+            if (e.key === 'ArrowLeft' || e.key === 'a') keys.left = true;
+            if (e.key === 'ArrowRight' || e.key === 'd') keys.right = true;
+            if (e.key === 'ArrowUp' || e.key === 'w' || e.key === ' ') keys.up = true;
+            if (e.key === 'Shift' || e.key === 'z') keys.dash = true;
+            if (e.key === 'x' || e.key === 'f') keys.parry = true;
+        });
+
+        window.addEventListener('keyup', e => {
+            if (e.key === 'ArrowLeft' || e.key === 'a') keys.left = false;
+            if (e.key === 'ArrowRight' || e.key === 'd') keys.right = false;
+            if (e.key === 'ArrowUp' || e.key === 'w' || e.key === ' ') keys.up = false;
+            if (e.key === 'Shift' || e.key === 'z') keys.dash = false;
+            if (e.key === 'x' || e.key === 'f') keys.parry = false;
+        });
+
+        const btnLeft = document.getElementById('btn-left');
+        const btnRight = document.getElementById('btn-right');
+        const btnJump = document.getElementById('btn-jump');
+        const btnDash = document.getElementById('btn-dash');
+        const btnParry = document.getElementById('btn-parry');
+
+        const addTouch = (elem, key) => {
+            if(!elem) return;
+            elem.addEventListener('touchstart', (e) => { e.preventDefault(); keys[key] = true; elem.classList.add('active'); });
+            elem.addEventListener('touchend', (e) => { e.preventDefault(); keys[key] = false; elem.classList.remove('active'); });
+            elem.addEventListener('mousedown', (e) => { e.preventDefault(); keys[key] = true; elem.classList.add('active'); });
+            elem.addEventListener('mouseup', (e) => { e.preventDefault(); keys[key] = false; elem.classList.remove('active'); });
+            elem.addEventListener('mouseleave', (e) => { e.preventDefault(); keys[key] = false; elem.classList.remove('active'); });
+        };
+
+        addTouch(btnLeft, 'left');
+        addTouch(btnRight, 'right');
+        addTouch(btnJump, 'up');
+        addTouch(btnDash, 'dash');
+        addTouch(btnParry, 'parry');
+
+    </script>
+</body>
+</html>
